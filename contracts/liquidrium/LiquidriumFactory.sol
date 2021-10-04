@@ -8,10 +8,10 @@ import {IFactory} from "../factory/IFactory.sol";
 import {IInstanceRegistry} from "../factory/InstanceRegistry.sol";
 import {ProxyFactory} from "../factory/ProxyFactory.sol";
 
-import {IUniversalVault} from "./Visor.sol";
+import {IUniversalVault} from "./Liquidrium.sol";
 
-/// @title VisorFactory
-contract VisorFactory is Ownable, IFactory, IInstanceRegistry, ERC721 {
+/// @title LiquidriumFactory
+contract LiquidriumFactory is Ownable, IFactory, IInstanceRegistry, ERC721 {
 
     bytes32[] public names;
     mapping(bytes32=>address) public templates;
@@ -22,7 +22,7 @@ contract VisorFactory is Ownable, IFactory, IInstanceRegistry, ERC721 {
     event TemplateAdded(bytes32 indexed name, address indexed template);
     event TemplateActive(bytes32 indexed name, address indexed template);
 
-    constructor() ERC721("VISOR", "VISOR") {}
+    constructor() ERC721("Liquidrium", "Liquidrium") {}
 
     function addTemplate(bytes32 name, address template) public onlyOwner {
         require(templates[name] == address(0), "Template already exists");

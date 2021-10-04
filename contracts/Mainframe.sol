@@ -9,14 +9,14 @@ import {TransferHelper} from "@uniswap/lib/contracts/libraries/TransferHelper.so
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/ERC721Holder.sol";
 
-import {IHypervisor} from "./hypervisor/Hypervisor.sol";
-import {IUniversalVault} from "./visor/Visor.sol";
+import {IHyperLiquidrium} from "./hyperliquidrium/HyperLiquidrium.sol";
+import {IUniversalVault} from "./liquidrium/Liquidrium.sol";
 import {IFactory} from "./factory/IFactory.sol";
 
 /// @title Mainframe
 contract Mainframe is ERC721Holder {
     function mintVisorAndStake(
-        address hypervisor,
+        address hyperliquidrium,
         address visorFactory,
         address visorOwner,
         uint256 amount,
@@ -26,13 +26,13 @@ contract Mainframe is ERC721Holder {
         // create vault
         vault = IFactory(visorFactory).create2("", salt);
         // get staking token
-        address stakingToken = IHypervisor(hypervisor).getHypervisorData().stakingToken;
+        address stakingToken = IHyperLiquidrium(hyperliquidrium).getHyperLiquidriumData().stakingToken;
         // transfer ownership
         IERC721(visorFactory).safeTransferFrom(address(this), visorOwner, uint256(vault));
         // transfer tokens
         TransferHelper.safeTransferFrom(stakingToken, msg.sender, vault, amount);
         // stake
-        IHypervisor(hypervisor).stake(vault, amount, permission);
+        IHyperLiquidrium(hyperliquidrium).stake(vault, amount, permission);
     }
 
     struct Permit {
@@ -46,7 +46,7 @@ contract Mainframe is ERC721Holder {
     }
 
     function mintVisorPermitAndStake(
-        address hypervisor,
+        address hyperliquidrium,
         address visorFactory,
         address visorOwner,
         bytes32 salt,
@@ -58,19 +58,19 @@ contract Mainframe is ERC721Holder {
         // transfer ownership
         IERC721(visorFactory).safeTransferFrom(address(this), visorOwner, uint256(vault));
         // permit and stake
-        permitAndStake(hypervisor, vault, permit, permission);
+        permitAndStake(hyperliquidrium, vault, permit, permission);
         // return vault
         return vault;
     }
 
     function permitAndStake(
-        address hypervisor,
+        address hyperliquidrium,
         address vault,
         Permit calldata permit,
         bytes calldata permission
     ) public {
         // get staking token
-        address stakingToken = IHypervisor(hypervisor).getHypervisorData().stakingToken;
+        address stakingToken = IHyperLiquidrium(hyperliquidrium).getHyperLiquidriumData().stakingToken;
         // permit transfer
         IERC20Permit(stakingToken).permit(
             permit.owner,
@@ -84,11 +84,11 @@ contract Mainframe is ERC721Holder {
         // transfer tokens
         TransferHelper.safeTransferFrom(stakingToken, msg.sender, vault, permit.value);
         // stake
-        IHypervisor(hypervisor).stake(vault, permit.value, permission);
+        IHyperLiquidrium(hyperliquidrium).stake(vault, permit.value, permission);
     }
 
     struct StakeRequest {
-        address hypervisor;
+        address hyperliquidrium;
         address vault;
         uint256 amount;
         bytes permission;
@@ -97,12 +97,12 @@ contract Mainframe is ERC721Holder {
     function stakeMulti(StakeRequest[] calldata requests) external {
         for (uint256 index = 0; index < requests.length; index++) {
             StakeRequest calldata request = requests[index];
-            IHypervisor(request.hypervisor).stake(request.vault, request.amount, request.permission);
+            IHyperLiquidrium(request.hyperliquidrium).stake(request.vault, request.amount, request.permission);
         }
     }
 
     struct UnstakeRequest {
-        address hypervisor;
+        address hyperliquidrium;
         address vault;
         uint256 amount;
         bytes permission;
@@ -111,7 +111,7 @@ contract Mainframe is ERC721Holder {
     function unstakeMulti(UnstakeRequest[] calldata requests) external {
         for (uint256 index = 0; index < requests.length; index++) {
             UnstakeRequest calldata request = requests[index];
-            IHypervisor(request.hypervisor).unstakeAndClaim(
+            IHyperLiquidrium(request.hyperliquidrium).unstakeAndClaim(
                 request.vault,
                 request.amount,
                 request.permission
@@ -128,16 +128,16 @@ contract Mainframe is ERC721Holder {
     }
 
     function stake(
-        address hypervisor,
+        address hyperliquidrium,
         address vault,
         uint256 value,
         bytes calldata permission
     ) public {
         // get staking token
-        address stakingToken = IHypervisor(hypervisor).getHypervisorData().stakingToken;
+        address stakingToken = IHyperLiquidrium(hyperliquidrium).getHyperLiquidriumData().stakingToken;
         // transfer tokens
         TransferHelper.safeTransferFrom(stakingToken, msg.sender, vault, value);
         // stake
-        IHypervisor(hypervisor).stake(vault, value, permission);
+        IHyperLiquidrium(hyperliquidrium).stake(vault, value, permission);
     }
 }

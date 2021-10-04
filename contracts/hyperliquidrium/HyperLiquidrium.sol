@@ -10,7 +10,7 @@ import {TransferHelper} from "@uniswap/lib/contracts/libraries/TransferHelper.so
 
 import {IFactory} from "../factory/IFactory.sol";
 import {IInstanceRegistry} from "../factory/InstanceRegistry.sol";
-import {IUniversalVault} from "../visor/Visor.sol";
+import {IUniversalVault} from "../liquidrium/Liquidrium.sol";
 import {IRewardPool} from "./RewardPool.sol";
 import {Powered} from "./Powered.sol";
 
@@ -18,11 +18,11 @@ interface IRageQuit {
     function rageQuit() external;
 }
 
-interface IHypervisor is IRageQuit {
+interface IHyperLiquidrium is IRageQuit {
     /* admin events */
 
-    event HypervisorCreated(address rewardPool, address powerSwitch);
-    event HypervisorFunded(uint256 amount, uint256 duration);
+    event HyperLiquidriumCreated(address rewardPool, address powerSwitch);
+    event HyperLiquidriumFunded(uint256 amount, uint256 duration);
     event BonusTokenRegistered(address token);
     event VaultFactoryRegistered(address factory);
     event VaultFactoryRemoved(address factory);
@@ -35,7 +35,7 @@ interface IHypervisor is IRageQuit {
 
     /* data types */
 
-    struct HypervisorData {
+    struct HyperLiquidriumData {
         address stakingToken;
         address rewardToken;
         address rewardPool;
@@ -92,7 +92,7 @@ interface IHypervisor is IRageQuit {
 
     /* getter functions */
 
-    function getHypervisorData() external view returns (HypervisorData memory hypervisor);
+    function getHyperLiquidriumData() external view returns (HyperLiquidriumData memory HyperLiquidrium);
 
     function getBonusTokenSetLength() external view returns (uint256 length);
 
@@ -185,36 +185,36 @@ interface IHypervisor is IRageQuit {
     ) external pure returns (uint256 reward);
 }
 
-/// @title Hypervisor
+/// @title HyperLiquidrium
 /// @notice Reward distribution contract with time multiplier
 /// Access Control
 /// - Power controller:
-///     Can power off / shutdown the Hypervisor
+///     Can power off / shutdown the HyperLiquidrium
 ///     Can withdraw rewards from reward pool once shutdown
 /// - Proxy owner:
-///     Can change arbitrary logic / state by upgrading the Hypervisor
+///     Can change arbitrary logic / state by upgrading the HyperLiquidrium
 ///     Is unable to operate on user funds due to UniversalVault
 ///     Is unable to operate on reward pool funds when reward pool is offline / shutdown
-/// - Hypervisor admin:
-///     Can add funds to the Hypervisor, register bonus tokens, and whitelist new vault factories
+/// - HyperLiquidrium admin:
+///     Can add funds to the HyperLiquidrium, register bonus tokens, and whitelist new vault factories
 ///     Is a subset of proxy owner permissions
 /// - User:
 ///     Can deposit / withdraw / ragequit
-/// Hypervisor State Machine
+/// HyperLiquidrium State Machine
 /// - Online:
-///     Hypervisor is operating normally, all functions are enabled
+///     HyperLiquidrium is operating normally, all functions are enabled
 /// - Offline:
-///     Hypervisor is temporarely disabled for maintenance
+///     HyperLiquidrium is temporarely disabled for maintenance
 ///     User deposits and withdrawls are disabled, ragequit remains enabled
 ///     Users can withdraw their stake through rageQuit() but forego their pending reward
 ///     Should only be used when downtime required for an upgrade
 /// - Shutdown:
-///     Hypervisor is permanently disabled
+///     HyperLiquidrium is permanently disabled
 ///     All functions are disabled with the exception of ragequit
 ///     Users can withdraw their stake through rageQuit()
 ///     Power controller can withdraw from the reward pool
 ///     Should only be used if Proxy Owner role is compromized
-contract Hypervisor is IHypervisor, Powered, Ownable {
+contract HyperLiquidrium is IHyperLiquidrium, Powered, Ownable {
     using SafeMath for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -234,14 +234,14 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
 
     /* storage */
 
-    HypervisorData private _hypervisor;
+    HyperLiquidriumData private _hyperliquidrium;
     mapping(address => VaultData) private _vaults;
     EnumerableSet.AddressSet private _bonusTokenSet;
     EnumerableSet.AddressSet private _vaultFactorySet;
 
     /* initializer */
 
-    /// @notice Initizalize Hypervisor
+    /// @notice Initizalize HyperLiquidrium
     /// access control: only proxy constructor
     /// state machine: can only be called once
     /// state scope: set initialization variables
@@ -249,8 +249,8 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
     /// @param ownerAddress address The admin address
     /// @param rewardPoolFactory address The factory to use for deploying the RewardPool
     /// @param powerSwitchFactory address The factory to use for deploying the PowerSwitch
-    /// @param stakingToken address The address of the staking token for this Hypervisor
-    /// @param rewardToken address The address of the reward token for this Hypervisor
+    /// @param stakingToken address The address of the staking token for this HyperLiquidrium
+    /// @param rewardToken address The address of the reward token for this HyperLiquidrium
     /// @param rewardScaling RewardScaling The config for reward scaling floor, ceiling, and time
     constructor(
         address ownerAddress,
@@ -262,11 +262,11 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         uint256 _stakeLimit
     ) {
         // the scaling floor must be smaller than ceiling
-        require(rewardScaling.floor <= rewardScaling.ceiling, "Hypervisor: floor above ceiling");
+        require(rewardScaling.floor <= rewardScaling.ceiling, "HyperLiquidrium: floor above ceiling");
 
         // setting rewardScalingTime to 0 would cause divide by zero error
         // to disable reward scaling, use rewardScalingFloor == rewardScalingCeiling
-        require(rewardScaling.time != 0, "Hypervisor: scaling time cannot be zero");
+        require(rewardScaling.time != 0, "HyperLiquidrium: scaling time cannot be zero");
 
         // deploy power switch
         address powerSwitch = IFactory(powerSwitchFactory).create(abi.encode(ownerAddress));
@@ -279,15 +279,15 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         Powered._setPowerSwitch(powerSwitch);
 
         // commit to storage
-        _hypervisor.stakingToken = stakingToken;
-        _hypervisor.rewardToken = rewardToken;
-        _hypervisor.rewardPool = rewardPool;
-        _hypervisor.rewardScaling = rewardScaling;
+        _hyperliquidrium.stakingToken = stakingToken;
+        _hyperliquidrium.rewardToken = rewardToken;
+        _hyperliquidrium.rewardPool = rewardPool;
+        _hyperliquidrium.rewardScaling = rewardScaling;
 
         stakeLimit = _stakeLimit;
 
         // emit event
-        emit HypervisorCreated(rewardPool, powerSwitch);
+        emit HyperLiquidriumCreated(rewardPool, powerSwitch);
     }
 
     /* getter functions */
@@ -334,16 +334,16 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         return
             target != address(this) &&
             target != address(0) &&
-            target != _hypervisor.stakingToken &&
-            target != _hypervisor.rewardToken &&
-            target != _hypervisor.rewardPool &&
+            target != _hyperliquidrium.stakingToken &&
+            target != _hyperliquidrium.rewardToken &&
+            target != _hyperliquidrium.rewardPool &&
             !_bonusTokenSet.contains(target);
     }
 
-    /* Hypervisor getters */
+    /* HyperLiquidrium getters */
 
-    function getHypervisorData() external view override returns (HypervisorData memory hypervisor) {
-        return _hypervisor;
+    function getHyperLiquidriumData() external view override returns (HyperLiquidriumData memory HyperLiquidrium) {
+        return _hyperliquidrium;
     }
 
     function getCurrentUnlockedRewards() public view override returns (uint256 unlockedRewards) {
@@ -358,12 +358,12 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         returns (uint256 unlockedRewards)
     {
         // get reward amount remaining
-        uint256 remainingRewards = IERC20(_hypervisor.rewardToken).balanceOf(_hypervisor.rewardPool);
+        uint256 remainingRewards = IERC20(_hyperliquidrium.rewardToken).balanceOf(_hyperliquidrium.rewardPool);
         // calculate reward available based on state
         unlockedRewards = calculateUnlockedRewards(
-            _hypervisor.rewardSchedules,
+            _hyperliquidrium.rewardSchedules,
             remainingRewards,
-            _hypervisor.rewardSharesOutstanding,
+            _hyperliquidrium.rewardSharesOutstanding,
             timestamp
         );
         // explicit return
@@ -382,12 +382,12 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         returns (uint256 totalStakeUnits)
     {
         // return early if no change
-        if (timestamp == _hypervisor.lastUpdate) return _hypervisor.totalStakeUnits;
+        if (timestamp == _hyperliquidrium.lastUpdate) return _hyperliquidrium.totalStakeUnits;
         // calculate new stake units
         uint256 newStakeUnits =
-            calculateStakeUnits(_hypervisor.totalStake, _hypervisor.lastUpdate, timestamp);
+            calculateStakeUnits(_hyperliquidrium.totalStake, _hyperliquidrium.lastUpdate, timestamp);
         // add to cached total
-        totalStakeUnits = _hypervisor.totalStakeUnits.add(newStakeUnits);
+        totalStakeUnits = _hyperliquidrium.totalStakeUnits.add(newStakeUnits);
         // explicit return
         return totalStakeUnits;
     }
@@ -415,7 +415,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
                 getCurrentTotalStakeUnits(),
                 block
                     .timestamp,
-                _hypervisor
+                _hyperliquidrium
                     .rewardScaling
             )
                 .reward;
@@ -437,7 +437,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
                 getFutureUnlockedRewards(timestamp),
                 getFutureTotalStakeUnits(timestamp),
                 timestamp,
-                _hypervisor
+                _hyperliquidrium
                     .rewardScaling
             )
                 .reward;
@@ -459,7 +459,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
                 getCurrentTotalStakeUnits(),
                 block
                     .timestamp,
-                _hypervisor
+                _hyperliquidrium
                     .rewardScaling
             )
                 .reward;
@@ -479,7 +479,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
                 getFutureUnlockedRewards(timestamp),
                 getFutureTotalStakeUnits(timestamp),
                 timestamp,
-                _hypervisor
+                _hyperliquidrium
                     .rewardScaling
             )
                 .reward;
@@ -699,52 +699,52 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
 
     /* admin functions */
 
-    /// @notice Add funds to the Hypervisor
+    /// @notice Add funds to the HyperLiquidrium
     /// access control: only admin
     /// state machine:
     ///   - can be called multiple times
     ///   - only online
     /// state scope:
-    ///   - increase _hypervisor.rewardSharesOutstanding
-    ///   - append to _hypervisor.rewardSchedules
+    ///   - increase _hyperliquidrium.rewardSharesOutstanding
+    ///   - append to _hyperliquidrium.rewardSchedules
     /// token transfer: transfer staking tokens from msg.sender to reward pool
     /// @param amount uint256 Amount of reward tokens to deposit
     /// @param duration uint256 Duration over which to linearly unlock rewards
     function fund(uint256 amount, uint256 duration) external onlyOwner onlyOnline {
         // validate duration
-        require(duration != 0, "Hypervisor: invalid duration");
+        require(duration != 0, "HyperLiquidrium: invalid duration");
 
         // create new reward shares
-        // if existing rewards on this Hypervisor
+        // if existing rewards on this HyperLiquidrium
         //   mint new shares proportional to % change in rewards remaining
         //   newShares = remainingShares * newReward / remainingRewards
         // else
         //   mint new shares with BASE_SHARES_PER_WEI initial conversion rate
         //   store as fixed point number with same  of decimals as reward token
         uint256 newRewardShares;
-        if (_hypervisor.rewardSharesOutstanding > 0) {
-            uint256 remainingRewards = IERC20(_hypervisor.rewardToken).balanceOf(_hypervisor.rewardPool);
-            newRewardShares = _hypervisor.rewardSharesOutstanding.mul(amount).div(remainingRewards);
+        if (_hyperliquidrium.rewardSharesOutstanding > 0) {
+            uint256 remainingRewards = IERC20(_hyperliquidrium.rewardToken).balanceOf(_hyperliquidrium.rewardPool);
+            newRewardShares = _hyperliquidrium.rewardSharesOutstanding.mul(amount).div(remainingRewards);
         } else {
             newRewardShares = amount.mul(BASE_SHARES_PER_WEI);
         }
 
         // add reward shares to total
-        _hypervisor.rewardSharesOutstanding = _hypervisor.rewardSharesOutstanding.add(newRewardShares);
+        _hyperliquidrium.rewardSharesOutstanding = _hyperliquidrium.rewardSharesOutstanding.add(newRewardShares);
 
         // store new reward schedule
-        _hypervisor.rewardSchedules.push(RewardSchedule(duration, block.timestamp, newRewardShares));
+        _hyperliquidrium.rewardSchedules.push(RewardSchedule(duration, block.timestamp, newRewardShares));
 
         // transfer reward tokens to reward pool
         TransferHelper.safeTransferFrom(
-            _hypervisor.rewardToken,
+            _hyperliquidrium.rewardToken,
             msg.sender,
-            _hypervisor.rewardPool,
+            _hyperliquidrium.rewardPool,
             amount
         );
 
         // emit event
-        emit HypervisorFunded(amount, duration);
+        emit HyperLiquidriumFunded(amount, duration);
     }
 
     /// @notice Add vault factory to whitelist
@@ -760,7 +760,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
     /// @param factory address The address of the vault factory
     function registerVaultFactory(address factory) external onlyOwner notShutdown {
         // add factory to set
-        require(_vaultFactorySet.add(factory), "Hypervisor: vault factory already registered");
+        require(_vaultFactorySet.add(factory), "HyperLiquidrium: vault factory already registered");
 
         // emit event
         emit VaultFactoryRegistered(factory);
@@ -780,7 +780,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
     /// @param factory address The address of the vault factory
     function removeVaultFactory(address factory) external onlyOwner notShutdown {
         // remove factory from set
-        require(_vaultFactorySet.remove(factory), "Hypervisor: vault factory not registered");
+        require(_vaultFactorySet.remove(factory), "HyperLiquidrium: vault factory not registered");
 
         // emit event
         emit VaultFactoryRemoved(factory);
@@ -801,7 +801,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         _validateAddress(bonusToken);
 
         // verify bonus token count
-        require(_bonusTokenSet.length() < MAX_REWARD_TOKENS, "Hypervisor: max bonus tokens reached ");
+        require(_bonusTokenSet.length() < MAX_REWARD_TOKENS, "HyperLiquidrium: max bonus tokens reached ");
 
         // add token to set
         assert(_bonusTokenSet.add(bonusToken));
@@ -831,13 +831,13 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         _validateAddress(recipient);
 
         // check not attempting to unstake reward token
-        require(token != _hypervisor.rewardToken, "Hypervisor: invalid address");
+        require(token != _hyperliquidrium.rewardToken, "HyperLiquidrium: invalid address");
 
         // check not attempting to wthdraw bonus token
-        require(!_bonusTokenSet.contains(token), "Hypervisor: invalid address");
+        require(!_bonusTokenSet.contains(token), "HyperLiquidrium: invalid address");
 
         // transfer tokens to recipient
-        IRewardPool(_hypervisor.rewardPool).sendERC20(token, recipient, amount);
+        IRewardPool(_hyperliquidrium.rewardPool).sendERC20(token, recipient, amount);
     }
 
     /* user functions */
@@ -848,13 +848,13 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
     /// state machine:
     ///   - can be called multiple times
     ///   - only online
-    ///   - when vault exists on this Hypervisor
+    ///   - when vault exists on this HyperLiquidrium
     /// state scope:
     ///   - append to _vaults[vault].stakes
     ///   - increase _vaults[vault].totalStake
-    ///   - increase _hypervisor.totalStake
-    ///   - increase _hypervisor.totalStakeUnits
-    ///   - increase _hypervisor.lastUpdate
+    ///   - increase _hyperliquidrium.totalStake
+    ///   - increase _hyperliquidrium.totalStakeUnits
+    ///   - increase _hyperliquidrium.lastUpdate
     /// token transfer: transfer staking tokens from msg.sender to vault
     /// @param vault address The address of the vault to stake from
     /// @param amount uint256 The amount of staking tokens to stake
@@ -864,10 +864,10 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         bytes calldata permission
     ) external override onlyOnline {
         // verify vault is valid
-        require(isValidVault(vault), "Hypervisor: vault is not registered");
+        require(isValidVault(vault), "HyperLiquidrium: vault is not registered");
 
         // verify non-zero amount
-        require(amount != 0, "Hypervisor: no amount staked");
+        require(amount != 0, "HyperLiquidrium: no amount staked");
 
         // fetch vault storage reference
         VaultData storage vaultData = _vaults[vault];
@@ -875,7 +875,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         // verify stakes boundary not reached
         require(
             vaultData.stakes.length < MAX_STAKES_PER_VAULT,
-            "Hypervisor: MAX_STAKES_PER_VAULT reached"
+            "HyperLiquidrium: MAX_STAKES_PER_VAULT reached"
         );
 
         // update cached sum of stake units across all vaults
@@ -884,17 +884,17 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         // store amount and timestamp
         vaultData.stakes.push(StakeData(amount, block.timestamp));
 
-        // update cached total vault and Hypervisor amounts
+        // update cached total vault and HyperLiquidrium amounts
         vaultData.totalStake = vaultData.totalStake.add(amount);
         // verify stake quantity without bounds
         require(
             stakeLimit == 0 || vaultData.totalStake <= stakeLimit,
-            "Hypervisor: Stake limit exceeded"
+            "HyperLiquidrium: Stake limit exceeded"
         );
-        _hypervisor.totalStake = _hypervisor.totalStake.add(amount);
+        _hyperliquidrium.totalStake = _hyperliquidrium.totalStake.add(amount);
 
         // call lock on vault
-        IUniversalVault(vault).lock(_hypervisor.stakingToken, amount, permission);
+        IUniversalVault(vault).lock(_hyperliquidrium.stakingToken, amount, permission);
 
         // emit event
         emit Staked(vault, amount);
@@ -904,15 +904,15 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
     /// @dev rewards can only be claimed when unstaking
     /// access control: only owner of vault
     /// state machine:
-    ///   - when vault exists on this Hypervisor
+    ///   - when vault exists on this HyperLiquidrium
     ///   - after stake from vault
     ///   - can be called multiple times while sufficient stake remains
     ///   - only online
     /// state scope:
-    ///   - decrease _hypervisor.rewardSharesOutstanding
-    ///   - decrease _hypervisor.totalStake
-    ///   - increase _hypervisor.lastUpdate
-    ///   - modify _hypervisor.totalStakeUnits
+    ///   - decrease _hyperliquidrium.rewardSharesOutstanding
+    ///   - decrease _hyperliquidrium.totalStake
+    ///   - increase _hyperliquidrium.lastUpdate
+    ///   - modify _hyperliquidrium.totalStakeUnits
     ///   - modify _vaults[vault].stakes
     ///   - decrease _vaults[vault].totalStake
     /// token transfer:
@@ -929,7 +929,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         VaultData storage vaultData = _vaults[vault];
 
         // verify non-zero amount
-        require(amount != 0, "Hypervisor: no amount unstaked");
+        require(amount != 0, "HyperLiquidrium: no amount unstaked");
 
         address recipient = IUniversalVault(vault).owner();
 
@@ -937,24 +937,24 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         _validateAddress(recipient);
 
         // check for sufficient vault stake amount
-        require(vaultData.totalStake >= amount, "Hypervisor: insufficient vault stake");
+        require(vaultData.totalStake >= amount, "HyperLiquidrium: insufficient vault stake");
 
-        // check for sufficient Hypervisor stake amount
+        // check for sufficient HyperLiquidrium stake amount
         // if this check fails, there is a bug in stake accounting
-        assert(_hypervisor.totalStake >= amount);
+        assert(_hyperliquidrium.totalStake >= amount);
 
         // update cached sum of stake units across all vaults
         _updateTotalStakeUnits();
 
         // get reward amount remaining
-        uint256 remainingRewards = IERC20(_hypervisor.rewardToken).balanceOf(_hypervisor.rewardPool);
+        uint256 remainingRewards = IERC20(_hyperliquidrium.rewardToken).balanceOf(_hyperliquidrium.rewardPool);
 
         // calculate vested portion of reward pool
         uint256 unlockedRewards =
             calculateUnlockedRewards(
-                _hypervisor.rewardSchedules,
+                _hyperliquidrium.rewardSchedules,
                 remainingRewards,
-                _hypervisor.rewardSharesOutstanding,
+                _hyperliquidrium.rewardSharesOutstanding,
                 block.timestamp
             );
 
@@ -964,9 +964,9 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
                 vaultData.stakes,
                 amount,
                 unlockedRewards,
-                _hypervisor.totalStakeUnits,
+                _hyperliquidrium.totalStakeUnits,
                 block.timestamp,
-                _hypervisor.rewardScaling
+                _hyperliquidrium.rewardScaling
             );
 
         // update stake data in storage
@@ -983,11 +983,11 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
 
         // update cached stake totals
         vaultData.totalStake = vaultData.totalStake.sub(amount);
-        _hypervisor.totalStake = _hypervisor.totalStake.sub(amount);
-        _hypervisor.totalStakeUnits = out.newTotalStakeUnits;
+        _hyperliquidrium.totalStake = _hyperliquidrium.totalStake.sub(amount);
+        _hyperliquidrium.totalStakeUnits = out.newTotalStakeUnits;
 
         // unlock staking tokens from vault
-        IUniversalVault(vault).unlock(_hypervisor.stakingToken, amount, permission);
+        IUniversalVault(vault).unlock(_hyperliquidrium.stakingToken, amount, permission);
 
         // emit event
         emit Unstaked(vault, amount);
@@ -997,10 +997,10 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
             // calculate shares to burn
             // sharesToBurn = sharesOutstanding * reward / remainingRewards
             uint256 sharesToBurn =
-                _hypervisor.rewardSharesOutstanding.mul(out.reward).div(remainingRewards);
+                _hyperliquidrium.rewardSharesOutstanding.mul(out.reward).div(remainingRewards);
 
             // burn claimed shares
-            _hypervisor.rewardSharesOutstanding = _hypervisor.rewardSharesOutstanding.sub(sharesToBurn);
+            _hyperliquidrium.rewardSharesOutstanding = _hyperliquidrium.rewardSharesOutstanding.sub(sharesToBurn);
 
             // transfer bonus tokens from reward pool to recipient
             if (_bonusTokenSet.length() > 0) {
@@ -1011,12 +1011,12 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
                     // calculate bonus token amount
                     // bonusAmount = bonusRemaining * reward / remainingRewards
                     uint256 bonusAmount =
-                        IERC20(bonusToken).balanceOf(_hypervisor.rewardPool).mul(out.reward).div(
+                        IERC20(bonusToken).balanceOf(_hyperliquidrium.rewardPool).mul(out.reward).div(
                             remainingRewards
                         );
 
                     // transfer bonus token
-                    IRewardPool(_hypervisor.rewardPool).sendERC20(bonusToken, recipient, bonusAmount);
+                    IRewardPool(_hyperliquidrium.rewardPool).sendERC20(bonusToken, recipient, bonusAmount);
 
                     // emit event
                     emit RewardClaimed(vault, recipient, bonusToken, bonusAmount);
@@ -1024,26 +1024,26 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
             }
 
             // transfer reward tokens from reward pool to recipient
-            IRewardPool(_hypervisor.rewardPool).sendERC20(_hypervisor.rewardToken, recipient, out.reward);
+            IRewardPool(_hyperliquidrium.rewardPool).sendERC20(_hyperliquidrium.rewardToken, recipient, out.reward);
 
             // emit event
-            emit RewardClaimed(vault, recipient, _hypervisor.rewardToken, out.reward);
+            emit RewardClaimed(vault, recipient, _hyperliquidrium.rewardToken, out.reward);
         }
     }
 
-    /// @notice Exit Hypervisor without claiming reward
+    /// @notice Exit HyperLiquidrium without claiming reward
     /// @dev This function should never revert when correctly called by the vault.
     ///      A max number of stakes per vault is set with MAX_STAKES_PER_VAULT to
     ///      place an upper bound on the for loop in calculateTotalStakeUnits().
     /// access control: only callable by the vault directly
     /// state machine:
-    ///   - when vault exists on this Hypervisor
+    ///   - when vault exists on this HyperLiquidrium
     ///   - when active stake from this vault
     ///   - any power state
     /// state scope:
-    ///   - decrease _hypervisor.totalStake
-    ///   - increase _hypervisor.lastUpdate
-    ///   - modify _hypervisor.totalStakeUnits
+    ///   - decrease _hyperliquidrium.totalStake
+    ///   - increase _hyperliquidrium.lastUpdate
+    ///   - modify _hyperliquidrium.totalStakeUnits
     ///   - delete _vaults[vault]
     /// token transfer: none
     function rageQuit() external override {
@@ -1051,7 +1051,7 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         VaultData storage _vaultData = _vaults[msg.sender];
 
         // revert if no active stakes
-        require(_vaultData.stakes.length != 0, "Hypervisor: no stake");
+        require(_vaultData.stakes.length != 0, "HyperLiquidrium: no stake");
 
         // update cached sum of stake units across all vaults
         _updateTotalStakeUnits();
@@ -1060,8 +1060,8 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
         emit Unstaked(msg.sender, _vaultData.totalStake);
 
         // update cached totals
-        _hypervisor.totalStake = _hypervisor.totalStake.sub(_vaultData.totalStake);
-        _hypervisor.totalStakeUnits = _hypervisor.totalStakeUnits.sub(
+        _hyperliquidrium.totalStake = _hyperliquidrium.totalStake.sub(_vaultData.totalStake);
+        _hyperliquidrium.totalStakeUnits = _hyperliquidrium.totalStakeUnits.sub(
             calculateTotalStakeUnits(_vaultData.stakes, block.timestamp)
         );
 
@@ -1073,14 +1073,14 @@ contract Hypervisor is IHypervisor, Powered, Ownable {
 
     function _updateTotalStakeUnits() private {
         // update cached totalStakeUnits
-        _hypervisor.totalStakeUnits = getCurrentTotalStakeUnits();
+        _hyperliquidrium.totalStakeUnits = getCurrentTotalStakeUnits();
         // update cached lastUpdate
-        _hypervisor.lastUpdate = block.timestamp;
+        _hyperliquidrium.lastUpdate = block.timestamp;
     }
 
     function _validateAddress(address target) private view {
         // sanity check target for potential input errors
-        require(isValidAddress(target), "Hypervisor: invalid address");
+        require(isValidAddress(target), "HyperLiquidrium: invalid address");
     }
 
     function _truncateStakesArray(StakeData[] memory array, uint256 newLength)

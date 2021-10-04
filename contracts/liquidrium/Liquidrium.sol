@@ -16,14 +16,14 @@ import {TransferHelper} from "@uniswap/lib/contracts/libraries/TransferHelper.so
 import {EIP712} from "./EIP712.sol";
 import {ERC1271} from "./ERC1271.sol";
 import {OwnableERC721} from "./OwnableERC721.sol";
-import {IRageQuit} from "../hypervisor/Hypervisor.sol";
+import {IRageQuit} from "../hyperliquidrium/HyperLiquidrium.sol";
 
 import {IUniversalVault} from "../interfaces/IUniversalVault.sol";
 
-/// @title Visor
+/// @title Liquidrium
 /// @notice Vault for isolated storage of staking tokens
 /// @dev Warning: not compatible with rebasing tokens
-contract Visor is
+contract Liquidrium is
     IUniversalVault,
     EIP712("UniversalVault", "1.0.0"),
     ERC1271,
@@ -52,7 +52,7 @@ contract Visor is
     bytes32 public constant UNLOCK_TYPEHASH =
         keccak256("Unlock(address delegate,address token,uint256 amount,uint256 nonce)");
 
-    string public constant VERSION = "VISOR-2.0.3";
+    string public constant VERSION = "Liquidrium-2.0.3";
 
     /* storage */
 
